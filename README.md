@@ -95,4 +95,6 @@ To eliminate this uncertainty, the script will:
 
 So `FETCH_INTERVAL_SEC` is set as half of a minute to make sure you are having exactly the period you want.
 
+You may observe this situation by setting your fetching inverval to 60 seconds, and 1 minute every fetching. If you have a good idea how to fix this, please contact me.
+
 
