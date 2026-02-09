@@ -67,7 +67,7 @@ options.add_argument("--headless")  # Uncomment this line
 1. **Browser Setup**: Initializes Chrome WebDriver with download preferences
 2. **Website Navigation**: Opens https://strecken-info.de
 3. **Cookie Handling**: Automatically accepts cookie consent (direct button or iframe)
-4. **Element Clicking**: Uses smart waits to click "Einschränkungen" menu
+4. **Element Clicking**: Click "Einschränkungen" menu
 5. **Export Trigger**: Clicks "Exportieren" button to initiate download
 6. **Download Wait**: Waits up to 60 seconds for file to appear
 7. **File Rename**: Renames downloaded file with timestamp (prevents conflicts)
