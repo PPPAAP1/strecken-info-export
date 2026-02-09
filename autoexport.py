@@ -16,11 +16,13 @@ FETCH_INTERVAL_MIN = 15 # Fetching interval in minutes, Edit this field accordin
 # DO NOT EDIT UNLESS YOU KNOW WHAT YOU ARE DOING
 TARGET_URL = "https://strecken-info.de"
 OUTPUT_FILENAME = "einschraenkungen.csv"
-FETCH_INTERVAL_SEC = FETCH_INTERVAL_MIN * 60
 LOG_INTERVAL = 1
 CLICK_TIMEOUT = 10
 COOKIE_TIMEOUT = 5
 DOWNLOAD_TIMEOUT = 60
+# About this field is 30 instead of 60, see readme.md - "Notes - Fetch_Interval_SEC" section
+FETCH_INTERVAL_SEC = FETCH_INTERVAL_MIN * 30
+
 
 
 def setup_driver(download_dir):

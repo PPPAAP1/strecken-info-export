@@ -83,10 +83,16 @@ options.add_argument("--headless")  # Uncomment this line
 - **Permission denied**: Ensure you have write access to `DOWNLOAD_DIR`
 
 ## Notes
-
 - The script runs indefinitely - use `Ctrl+C` to stop
 - Website maintenance may cause temporary failures (Rarely) - script will retry on next interval
-- THE BUG WITH COOKIE BYPASS IFRAME, FAILS EVERY SECOND TIME.
 
+### FETCH_INTERVAL_SEC
+Due to the dummy Selenium (or dummy me), the toggle "Einschränkungen" is not always off every time you close the tab. It could be sometimes not require you to click, which you can directly download it, but sometimes due to webside maintenance, the toggle is automatically off.
+To eliminate this uncertainty, the script will:
+- Still click the toggle (It may close the toggle)
+- Fail to click "export", shows download failure
+- Guarantee the next download to be successful
+
+So `FETCH_INTERVAL_SEC` is set as half of a minute to make sure you are having exactly the period you want.
 
 
