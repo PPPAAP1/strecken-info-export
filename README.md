@@ -80,7 +80,6 @@ options.add_argument("--headless")  # Uncomment this line
 - **"Failed to click restrictions table"**: Increase `CLICK_TIMEOUT` or check if website is accessible
 - **"Download timeout - file not found"**: Increase `DOWNLOAD_TIMEOUT` or verify the export works manually
 - **Chrome not found**: Install Google Chrome or check installation path
-- **Permission denied**: Ensure you have write access to `DOWNLOAD_DIR`
 
 ## Notes
 - The script runs indefinitely - use `Ctrl+C` to stop
@@ -93,7 +92,7 @@ To eliminate this uncertainty, the script will:
 - Fail to click "export", shows download failure
 - Guarantee the next download to be successful
 
-So `FETCH_INTERVAL_SEC` is set as half of a minute to make sure you are having exactly the period you want.
+So `FETCH_INTERVAL_SEC` is set as half of a minute (30 seconds) to make sure you are having exactly the period you want.
 
 You may observe this situation by setting your fetching inverval to 60 seconds, and 1 minute every fetching. If you have a good idea how to fix this, please contact me.
 
