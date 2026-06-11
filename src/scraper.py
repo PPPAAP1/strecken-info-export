@@ -16,7 +16,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 TARGET_URL = "https://strecken-info.de"
-OUTPUT_FILENAME = "einschraenkungen.csv"
+# The site's export button downloads a file whose name starts with this
+# prefix (e.g. "einschraenkungen.csv" or "einschraenkungen_11.06.2026.csv"
+# depending on the site version) - match by prefix instead of an exact name.
+EXPORT_FILE_PREFIX = "einschraenkungen"
 CLICK_TIMEOUT = 10
 COOKIE_TIMEOUT = 5
 DOWNLOAD_TIMEOUT = 60
@@ -161,38 +164,58 @@ def download_restriction_data(driver):
     return True, "ok"
 
 
-def wait_for_file(src_path, timeout=DOWNLOAD_TIMEOUT):
-    """Wait for file to appear in download directory."""
-    for _ in range(timeout):
-        if os.path.exists(src_path):
-            return True
-        time.sleep(1)
-    return False
+def _find_export_files(download_dir):
+    """Return export CSVs in download_dir, e.g. "einschraenkungen.csv" or
+    "einschraenkungen_11.06.2026.csv" - the site has used both naming schemes.
+    Ignores partial/in-progress downloads."""
+    return [
+        f for f in os.listdir(download_dir)
+        if f.lower().startswith(EXPORT_FILE_PREFIX.lower())
+        and f.lower().endswith(".csv")
+    ]
+
+
+def _archive_file(download_dir, filename):
+    """Rename a downloaded export file to a timestamped name, avoiding collisions."""
+    src_path = os.path.join(download_dir, filename)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    dst_path = os.path.join(download_dir, f"{timestamp}.csv")
+    suffix = 1
+    while os.path.exists(dst_path):
+        dst_path = os.path.join(download_dir, f"{timestamp}_{suffix}.csv")
+        suffix += 1
+    os.rename(src_path, dst_path)
+    return dst_path
 
 
 def save_export(driver, download_dir):
     """Export and rename file with timestamp. Returns (success, message)."""
-    src_path = os.path.join(download_dir, OUTPUT_FILENAME)
-
-    if os.path.exists(src_path):
-        # Leftover from a previous cycle - remove it so the browser doesn't
-        # save the new download as "einschraenkungen (1).csv" instead.
-        os.remove(src_path)
+    # Archive any leftover export file(s) from a previous cycle first, so the
+    # browser doesn't save the new download under a "(1)" suffixed name and
+    # so leftover files don't get mistaken for this cycle's download.
+    for f in _find_export_files(download_dir):
+        _archive_file(download_dir, f)
 
     ok, reason = download_restriction_data(driver)
     if not ok:
         _save_debug_artifacts(driver, download_dir, reason)
         return False, f"Fetch failed: {reason}"
 
-    if not wait_for_file(src_path):
+    new_file = None
+    for _ in range(DOWNLOAD_TIMEOUT):
+        files = _find_export_files(download_dir)
+        if files:
+            new_file = files[0]
+            break
+        time.sleep(1)
+
+    if new_file is None:
         _save_debug_artifacts(driver, download_dir, "download did not complete")
         return False, "Fetch failed: download did not start or complete in time"
 
     try:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        dst_path = os.path.join(download_dir, f"{timestamp}.csv")
-        os.rename(src_path, dst_path)
-        return True, f"Downloaded and saved to {download_dir}"
+        dst_path = _archive_file(download_dir, new_file)
+        return True, f"Downloaded and saved to {dst_path}"
     except Exception as e:
         return False, f"Downloaded but failed to save file: {e}"
 
