@@ -63,58 +63,20 @@ This opens a local web page with two tabs:
 
 ### Dashboard
 
-<<<<<<< HEAD
 - **Run deduplication**: merges all CSVs in the download directory into
   `output/deduped_stoerungen.csv` and reports how many files were skipped
   (e.g. unreadable/malformed exports).
 - Summary metrics, a daily disruption trend chart with a selectable date
   range, top-10 breakdowns by Region/Wirkung/Ursache, and a table of
   disruptions that are currently active or recently ended.
-=======
-### Change Fetch Interval
-```python
-DOWNLOAD_DIR = r"C:\Your\Custom\Path"  # Use raw string (r"") for Windows paths
-FETCH_INTERVAL_MIN = 15                                     # Interval in minutes
-```
-
-### Headless Mode
-To run the browser in the background without showing the UI:
-```python
-options.add_argument("--headless")  # Uncomment this line
-```
-## How It Works
-
-1. **Browser Setup**: Initializes Chrome WebDriver with download preferences
-2. **Website Navigation**: Opens https://strecken-info.de
-3. **Cookie Handling**: Automatically accepts cookie consent (direct button or iframe)
-4. **Element Clicking**: Click "Einschränkungen" menu
-5. **Export Trigger**: Clicks "Exportieren" button to initiate download
-6. **Download Wait**: Waits up to 60 seconds for file to appear
-7. **File Rename**: Renames downloaded file with timestamp (prevents conflicts)
-8. **State Reset**: Clears cookies and opens new tab for next cycle
-9. **Countdown**: Displays countdown timer until next fetch
-10. **Repeat**: Continues indefinitely until Ctrl+C is pressed
-
-
-**Common Issues:**
-- **"Failed to click restrictions table"**: Increase `CLICK_TIMEOUT` or check if website is accessible
-- **"Download timeout - file not found"**: Increase `DOWNLOAD_TIMEOUT` or verify the export works manually
-- **Chrome not found**: Install Google Chrome or check installation path
->>>>>>> 526706cd8e7b11b85f1843693c0df1c1f9d8320a
 
 ## Notes
 
 ### Fetch interval / "Einschränkungen" toggle quirk
 
-<<<<<<< HEAD
 The "Einschränkungen" toggle on strecken-info.de doesn't always reset between
 visits. Sometimes the export works immediately on a fresh page; other times
 the toggle is already open and the export click fails for that cycle.
-=======
-So `FETCH_INTERVAL_SEC` is set as half of a minute (30 seconds) to make sure you are having exactly the period you want.
-
-You may observe this situation by setting your fetching inverval to 60 seconds, and 1 minute every fetching. If you have a good idea how to fix this, please contact me.
->>>>>>> 526706cd8e7b11b85f1843693c0df1c1f9d8320a
 
 To compensate, the automatic acquisition loop sleeps for **half** of the
 configured interval between cycles. If a cycle fails because of this toggle

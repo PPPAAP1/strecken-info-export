@@ -138,6 +138,11 @@ def save_export(driver, download_dir):
     """Export and rename file with timestamp. Returns True on success."""
     src_path = os.path.join(download_dir, OUTPUT_FILENAME)
 
+    if os.path.exists(src_path):
+        # Leftover from a previous cycle - remove it so the browser doesn't
+        # save the new download as "einschraenkungen (1).csv" instead.
+        os.remove(src_path)
+
     if not download_restriction_data(driver):
         return False
 
