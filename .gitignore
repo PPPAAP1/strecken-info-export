@@ -1,0 +1,10 @@
+data/
+output/
+settings.json
+*.csv
+*.log
+*.png
+__pycache__/
+*.pyc
+.venv/
+venv/
