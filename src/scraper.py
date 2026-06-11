@@ -85,6 +85,30 @@ def safe_click(driver, xpath, timeout=CLICK_TIMEOUT):
         return False
 
 
+def _is_clickable(driver, xpath, timeout):
+    """Check whether an element is present and clickable, without clicking it."""
+    try:
+        WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable((By.XPATH, xpath))
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _save_debug_artifacts(driver, download_dir, reason):
+    """Save a screenshot and page source to help diagnose a failed fetch."""
+    try:
+        debug_dir = os.path.join(download_dir, "debug")
+        os.makedirs(debug_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        driver.save_screenshot(os.path.join(debug_dir, f"{timestamp}_failure.png"))
+        with open(os.path.join(debug_dir, f"{timestamp}_failure.html"), "w", encoding="utf-8") as f:
+            f.write(driver.page_source)
+    except Exception:
+        pass
+
+
 def handle_cookie_banner(driver):
     """Handle cookie consent - try direct button first, then iframe."""
     try:
@@ -109,20 +133,32 @@ def handle_cookie_banner(driver):
 
 
 def download_restriction_data(driver):
-    """Navigate to restrictions page and export data."""
+    """Navigate to restrictions page and export data.
+
+    Returns (success, reason) where reason describes the failing step
+    (or "ok" on success), used for diagnostics.
+    """
     try:
         driver.get(TARGET_URL)
-        handle_cookie_banner(driver)
+    except Exception as e:
+        return False, f"page did not load: {e}"
 
+    handle_cookie_banner(driver)
+
+    if not safe_click(driver, "//*[text()='Einschränkungen']", CLICK_TIMEOUT):
+        return False, "could not click 'Einschränkungen'"
+
+    # "Einschränkungen" is a toggle. If "Exportieren" doesn't show up shortly
+    # after, the panel was probably already open and this click just closed
+    # it again - click once more to re-open it.
+    if not _is_clickable(driver, "//*[text()='Exportieren']", timeout=3):
         if not safe_click(driver, "//*[text()='Einschränkungen']", CLICK_TIMEOUT):
-            return False
+            return False, "could not re-click 'Einschränkungen'"
 
-        if not safe_click(driver, "//*[text()='Exportieren']", CLICK_TIMEOUT):
-            return False
+    if not safe_click(driver, "//*[text()='Exportieren']", CLICK_TIMEOUT):
+        return False, "could not click 'Exportieren'"
 
-        return True
-    except Exception:
-        return False
+    return True, "ok"
 
 
 def wait_for_file(src_path, timeout=DOWNLOAD_TIMEOUT):
@@ -135,7 +171,7 @@ def wait_for_file(src_path, timeout=DOWNLOAD_TIMEOUT):
 
 
 def save_export(driver, download_dir):
-    """Export and rename file with timestamp. Returns True on success."""
+    """Export and rename file with timestamp. Returns (success, message)."""
     src_path = os.path.join(download_dir, OUTPUT_FILENAME)
 
     if os.path.exists(src_path):
@@ -143,19 +179,22 @@ def save_export(driver, download_dir):
         # save the new download as "einschraenkungen (1).csv" instead.
         os.remove(src_path)
 
-    if not download_restriction_data(driver):
-        return False
+    ok, reason = download_restriction_data(driver)
+    if not ok:
+        _save_debug_artifacts(driver, download_dir, reason)
+        return False, f"Fetch failed: {reason}"
 
     if not wait_for_file(src_path):
-        return False
+        _save_debug_artifacts(driver, download_dir, "download did not complete")
+        return False, "Fetch failed: download did not start or complete in time"
 
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         dst_path = os.path.join(download_dir, f"{timestamp}.csv")
         os.rename(src_path, dst_path)
-        return True
-    except Exception:
-        return False
+        return True, f"Downloaded and saved to {download_dir}"
+    except Exception as e:
+        return False, f"Downloaded but failed to save file: {e}"
 
 
 def reset_driver_state(driver):
@@ -172,9 +211,7 @@ def fetch_once(download_dir, headless=False, browser="auto", driver_path=None):
     driver = None
     try:
         driver = setup_driver(download_dir, headless, browser, driver_path)
-        if save_export(driver, download_dir):
-            return True, f"Downloaded and saved to {download_dir}"
-        return False, "Fetch failed: click/download step did not succeed - check that the site is reachable"
+        return save_export(driver, download_dir)
     except WebDriverException:
         return False, "No usable browser found (Chrome or Edge) - please install one and try again"
     except Exception as e:
@@ -210,12 +247,12 @@ def run_loop(download_dir, interval_min, headless, stop_event, status_queue, bro
 
     try:
         while not stop_event.is_set():
-            success = save_export(driver, download_dir)
+            success, message = save_export(driver, download_dir)
             timestamp = datetime.now().strftime("%H:%M:%S")
             if success:
                 status_queue.put(f"[{timestamp}] Download successful")
             else:
-                status_queue.put(f"[{timestamp}] Download failed this cycle (will retry next cycle)")
+                status_queue.put(f"[{timestamp}] {message} (will retry next cycle)")
 
             reset_driver_state(driver)
 
