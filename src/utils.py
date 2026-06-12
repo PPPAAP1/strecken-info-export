@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 import pandas as pd
+import streamlit as st
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SETTINGS_PATH = os.path.join(PROJECT_ROOT, "settings.json")
@@ -66,6 +67,19 @@ def save_settings(settings):
     """Persist acquisition settings to settings.json."""
     with open(SETTINGS_PATH, "w", encoding="utf-8") as f:
         json.dump(settings, f, ensure_ascii=False, indent=2)
+
+
+def rerun():
+    """Trigger a Streamlit rerun, on both old and new Streamlit versions.
+
+    `st.rerun` was added in newer Streamlit and `st.experimental_rerun` was
+    removed in even newer versions - so neither name alone is safe across
+    the Streamlit versions this app runs under.
+    """
+    if hasattr(st, "rerun"):
+        st.rerun()
+    else:
+        st.experimental_rerun()
 
 
 def browse_for_folder(initial_dir=None):

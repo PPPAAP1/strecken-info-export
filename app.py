@@ -10,7 +10,7 @@ import streamlit as st
 from src.analytics import compute_daily_counts, overall_date_range, top_n_categorical
 from src.dedup import deduplicate
 from src.scraper import fetch_once, run_loop, BROWSERS
-from src.utils import load_settings, save_settings, read_strecken_csv, parse_datetime_dd_mm_yyyy, browse_for_folder
+from src.utils import load_settings, save_settings, read_strecken_csv, parse_datetime_dd_mm_yyyy, browse_for_folder, rerun
 
 OUTPUT_PATH = os.path.join("output", "deduped_stoerungen.csv")
 
@@ -43,7 +43,7 @@ with tab_acquisition:
         selected = browse_for_folder(st.session_state.download_dir_input)
         if selected:
             st.session_state.download_dir_input = selected
-            st.experimental_rerun()
+            rerun()
 
     with dir_col:
         download_dir = st.text_input("Download directory", key="download_dir_input")
@@ -110,12 +110,12 @@ with tab_acquisition:
             st.session_state.status_log = []
             st.session_state.scrape_thread = thread
             thread.start()
-            st.experimental_rerun()
+            rerun()
 
     with col3:
         if st.button("Stop automatic acquisition", disabled=not running):
             st.session_state.stop_event.set()
-            st.experimental_rerun()
+            rerun()
 
     if running:
         st.info("Automatic acquisition is running...")

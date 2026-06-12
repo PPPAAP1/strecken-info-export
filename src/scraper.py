@@ -161,6 +161,13 @@ def download_restriction_data(driver):
     if not safe_click(driver, "//*[text()='Exportieren']", CLICK_TIMEOUT):
         return False, "could not click 'Exportieren'"
 
+    # Close the "Einschränkungen" panel again so the page ends this cycle in
+    # the same (closed) state it started in. Otherwise the site may carry the
+    # "open" state into the next page load, and the next cycle's first click
+    # would close the panel instead of opening it. Best-effort: if this click
+    # fails, the re-open logic above still recovers next cycle.
+    safe_click(driver, "//*[text()='Einschränkungen']", CLICK_TIMEOUT)
+
     return True, "ok"
 
 
@@ -252,15 +259,13 @@ def fetch_once(download_dir, headless=False, browser="auto", driver_path=None):
 def run_loop(download_dir, interval_min, headless, stop_event, status_queue, browser="auto", driver_path=None):
     """Continuously fetch on an interval until stop_event is set.
 
-    Sleeps interval_min * 30 seconds between cycles (half the requested
-    interval). This compensates for the "Einschränkungen" toggle sometimes
-    staying open between cycles - on the cycle where the toggle is already
-    open, the export click fails and that cycle is skipped, but the next
-    (half-interval-later) cycle succeeds, so the effective successful-export
-    interval still matches interval_min.
+    Sleeps interval_min * 60 seconds between cycles. Each cycle re-closes the
+    "Einschränkungen" panel after exporting, so the page starts the next
+    cycle in the same (closed) state - avoiding the toggle getting stuck open
+    and failing every other cycle.
     """
     os.makedirs(download_dir, exist_ok=True)
-    interval_sec = interval_min * 30
+    interval_sec = interval_min * 60
 
     try:
         driver = setup_driver(download_dir, headless, browser, driver_path)

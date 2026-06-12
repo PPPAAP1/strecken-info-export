@@ -75,13 +75,15 @@ This opens a local web page with two tabs:
 ### Fetch interval / "Einschränkungen" toggle quirk
 
 The "Einschränkungen" toggle on strecken-info.de doesn't always reset between
-visits. Sometimes the export works immediately on a fresh page; other times
-the toggle is already open and the export click fails for that cycle.
+visits - if the page is left with the panel open, the next visit can start
+with it already open, so the first click closes it instead of opening it.
 
-To compensate, the automatic acquisition loop sleeps for **half** of the
-configured interval between cycles. If a cycle fails because of this toggle
-state, the very next (half-interval-later) cycle will succeed, so the
-effective successful-export interval still matches what you configured.
+To avoid this, each cycle re-clicks "Einschränkungen" again right after
+exporting, closing the panel before the cycle ends. This keeps the page in a
+consistent (closed) state for the next cycle. As a fallback, if the panel is
+still found open at the start of a cycle, the toggle is clicked twice to
+recover. The automatic acquisition loop sleeps for the full configured
+interval between cycles.
 
 ### Headless mode
 
