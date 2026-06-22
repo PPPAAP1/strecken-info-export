@@ -2,6 +2,7 @@
 import os
 import queue
 import threading
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -109,6 +110,8 @@ with tab_acquisition:
             st.session_state.status_queue = status_queue
             st.session_state.status_log = []
             st.session_state.scrape_thread = thread
+            st.session_state.running_interval_min = fetch_interval_min
+            st.session_state.last_status_time = datetime.now()
             thread.start()
             rerun()
 
@@ -117,11 +120,6 @@ with tab_acquisition:
             st.session_state.stop_event.set()
             rerun()
 
-    if running:
-        st.info("Automatic acquisition is running...")
-    else:
-        st.caption("Automatic acquisition is not running")
-
     if "status_log" not in st.session_state:
         st.session_state.status_log = []
 
@@ -129,10 +127,38 @@ with tab_acquisition:
     if status_queue is not None:
         while not status_queue.empty():
             st.session_state.status_log.append(status_queue.get())
+            st.session_state.last_status_time = datetime.now()
+
+    if running:
+        st.info("Automatic acquisition is running...")
+
+        csv_count = 0
+        if os.path.isdir(download_dir):
+            csv_count = len([f for f in os.listdir(download_dir) if f.lower().endswith(".csv")])
+        successes = sum(1 for line in st.session_state.status_log if "Download successful" in line)
+        failures = len(st.session_state.status_log) - successes
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("CSV files collected", csv_count)
+        m2.metric("Successful fetches (this session)", successes)
+        m3.metric("Failed fetches (this session)", failures)
+
+        running_interval_min = st.session_state.get("running_interval_min", fetch_interval_min)
+        last_status_time = st.session_state.get("last_status_time")
+        if last_status_time is not None and running_interval_min:
+            interval_sec = running_interval_min * 60
+            elapsed = (datetime.now() - last_status_time).total_seconds()
+            remaining = max(0, interval_sec - elapsed)
+            mins, secs = divmod(int(remaining), 60)
+            st.progress(min(1.0, max(0.0, 1 - remaining / interval_sec)))
+            st.caption(f"Next fetch in about {mins}m {secs:02d}s")
+    else:
+        st.caption("Automatic acquisition is not running")
 
     if st.session_state.status_log:
-        st.button("Refresh status")
-        st.text("\n".join(st.session_state.status_log[-20:]))
+        st.caption(f"Latest: {st.session_state.status_log[-1]}")
+        with st.expander("Status log", expanded=False):
+            st.text("\n".join(st.session_state.status_log[-20:]))
 
 
 # ---------------------------------------------------------------------------
@@ -230,3 +256,13 @@ with tab_dashboard:
 
         display_cols = ["ID", "Ort", "Region", "Wirkung", "Ursache", "ZeitraumVon", "ZeitraumBis"]
         st.dataframe(recent_df[display_cols].reset_index(drop=True))
+
+
+# ---------------------------------------------------------------------------
+# Auto-refresh while acquisition is running, so the status panel above
+# updates by itself. Placed after both tabs are fully rendered so the
+# rerun doesn't leave the Dashboard tab blank.
+# ---------------------------------------------------------------------------
+if running:
+    time.sleep(3)
+    rerun()
