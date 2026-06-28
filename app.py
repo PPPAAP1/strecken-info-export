@@ -20,6 +20,22 @@ st.set_page_config(page_title="Strecken-Info Dashboard", layout="wide")
 if "settings" not in st.session_state:
     st.session_state.settings = load_settings()
 
+# Tracks the single background acquisition thread as a process-wide global
+# (not st.session_state) - session_state is per browser session, and a
+# reconnect (page refresh, brief network drop, sleep/wake) gets a fresh,
+# empty session_state even though the daemon thread keeps running in the
+# same process. A module-level dict survives reruns and is shared across all
+# sessions hitting this server, which matches there being only one loop.
+if "_acquisition_state" not in globals():
+    _acquisition_state = {
+        "thread": None,
+        "stop_event": None,
+        "status_queue": None,
+        "status_log": [],
+        "interval_min": None,
+        "last_status_time": None,
+    }
+
 tab_acquisition, tab_dashboard = st.tabs(["Acquisition", "Dashboard"])
 
 
@@ -93,8 +109,8 @@ with tab_acquisition:
                 st.error(message)
 
     running = (
-        st.session_state.get("scrape_thread") is not None
-        and st.session_state.scrape_thread.is_alive()
+        _acquisition_state["thread"] is not None
+        and _acquisition_state["thread"].is_alive()
     )
 
     with col2:
@@ -106,28 +122,27 @@ with tab_acquisition:
                 args=(download_dir, fetch_interval_min, headless, stop_event, status_queue, browser, driver_path or None),
                 daemon=True,
             )
-            st.session_state.stop_event = stop_event
-            st.session_state.status_queue = status_queue
-            st.session_state.status_log = []
-            st.session_state.scrape_thread = thread
-            st.session_state.running_interval_min = fetch_interval_min
-            st.session_state.last_status_time = datetime.now()
+            _acquisition_state["thread"] = thread
+            _acquisition_state["stop_event"] = stop_event
+            _acquisition_state["status_queue"] = status_queue
+            _acquisition_state["status_log"] = []
+            _acquisition_state["interval_min"] = fetch_interval_min
+            _acquisition_state["last_status_time"] = datetime.now()
             thread.start()
             rerun()
 
     with col3:
         if st.button("Stop automatic acquisition", disabled=not running):
-            st.session_state.stop_event.set()
+            _acquisition_state["stop_event"].set()
             rerun()
 
-    if "status_log" not in st.session_state:
-        st.session_state.status_log = []
-
-    status_queue = st.session_state.get("status_queue")
+    status_queue = _acquisition_state["status_queue"]
     if status_queue is not None:
         while not status_queue.empty():
-            st.session_state.status_log.append(status_queue.get())
-            st.session_state.last_status_time = datetime.now()
+            _acquisition_state["status_log"].append(status_queue.get())
+            _acquisition_state["last_status_time"] = datetime.now()
+
+    status_log = _acquisition_state["status_log"]
 
     if running:
         st.info("Automatic acquisition is running...")
@@ -135,16 +150,16 @@ with tab_acquisition:
         csv_count = 0
         if os.path.isdir(download_dir):
             csv_count = len([f for f in os.listdir(download_dir) if f.lower().endswith(".csv")])
-        successes = sum(1 for line in st.session_state.status_log if "Download successful" in line)
-        failures = len(st.session_state.status_log) - successes
+        successes = sum(1 for line in status_log if "Download successful" in line)
+        failures = len(status_log) - successes
 
         m1, m2, m3 = st.columns(3)
         m1.metric("CSV files collected", csv_count)
-        m2.metric("Successful fetches (this session)", successes)
-        m3.metric("Failed fetches (this session)", failures)
+        m2.metric("Successful fetches (since start)", successes)
+        m3.metric("Failed fetches (since start)", failures)
 
-        running_interval_min = st.session_state.get("running_interval_min", fetch_interval_min)
-        last_status_time = st.session_state.get("last_status_time")
+        running_interval_min = _acquisition_state["interval_min"] or fetch_interval_min
+        last_status_time = _acquisition_state["last_status_time"]
         if last_status_time is not None and running_interval_min:
             interval_sec = running_interval_min * 60
             elapsed = (datetime.now() - last_status_time).total_seconds()
@@ -155,10 +170,10 @@ with tab_acquisition:
     else:
         st.caption("Automatic acquisition is not running")
 
-    if st.session_state.status_log:
-        st.caption(f"Latest: {st.session_state.status_log[-1]}")
+    if status_log:
+        st.caption(f"Latest: {status_log[-1]}")
         with st.expander("Status log", expanded=False):
-            st.text("\n".join(st.session_state.status_log[-20:]))
+            st.text("\n".join(status_log[-20:]))
 
 
 # ---------------------------------------------------------------------------
