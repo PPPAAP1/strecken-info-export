@@ -2,7 +2,6 @@
 import os
 import queue
 import threading
-import time
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -170,6 +169,9 @@ with tab_acquisition:
     else:
         st.caption("Automatic acquisition is not running")
 
+    if running:
+        st.button("Refresh status")
+
     if status_log:
         st.caption(f"Latest: {status_log[-1]}")
         with st.expander("Status log", expanded=False):
@@ -271,13 +273,3 @@ with tab_dashboard:
 
         display_cols = ["ID", "Ort", "Region", "Wirkung", "Ursache", "ZeitraumVon", "ZeitraumBis"]
         st.dataframe(recent_df[display_cols].reset_index(drop=True))
-
-
-# ---------------------------------------------------------------------------
-# Auto-refresh while acquisition is running, so the status panel above
-# updates by itself. Placed after both tabs are fully rendered so the
-# rerun doesn't leave the Dashboard tab blank.
-# ---------------------------------------------------------------------------
-if running:
-    time.sleep(3)
-    rerun()
