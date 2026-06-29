@@ -69,6 +69,30 @@ def save_settings(settings):
         json.dump(settings, f, ensure_ascii=False, indent=2)
 
 
+# Single process-wide acquisition state, shared across all Streamlit
+# sessions. Streamlit gives the main script (app.py) a fresh namespace per
+# browser session even though it reuses that namespace across reruns within
+# one session - so a variable defined directly in app.py does not survive a
+# session reset (page refresh, brief network drop, sleep/wake), even though
+# the background acquisition thread (daemon=True) keeps running in the same
+# process. A module imported via `import`/`from X import Y` is cached once
+# per process in sys.modules, so state stored here genuinely persists
+# regardless of which (or how many) browser sessions are connected.
+_acquisition_state = {
+    "thread": None,
+    "stop_event": None,
+    "status_queue": None,
+    "status_log": [],
+    "interval_min": None,
+    "last_status_time": None,
+}
+
+
+def get_acquisition_state():
+    """Return the single process-wide acquisition state dict."""
+    return _acquisition_state
+
+
 def rerun():
     """Trigger a Streamlit rerun, on both old and new Streamlit versions.
 

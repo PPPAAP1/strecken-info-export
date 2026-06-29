@@ -10,7 +10,10 @@ import streamlit as st
 from src.analytics import compute_daily_counts, overall_date_range, top_n_categorical
 from src.dedup import deduplicate
 from src.scraper import fetch_once, run_loop, BROWSERS
-from src.utils import load_settings, save_settings, read_strecken_csv, parse_datetime_dd_mm_yyyy, browse_for_folder, rerun
+from src.utils import (
+    load_settings, save_settings, read_strecken_csv, parse_datetime_dd_mm_yyyy,
+    browse_for_folder, rerun, get_acquisition_state,
+)
 
 OUTPUT_PATH = os.path.join("output", "deduped_stoerungen.csv")
 
@@ -19,21 +22,9 @@ st.set_page_config(page_title="Strecken-Info Dashboard", layout="wide")
 if "settings" not in st.session_state:
     st.session_state.settings = load_settings()
 
-# Tracks the single background acquisition thread as a process-wide global
-# (not st.session_state) - session_state is per browser session, and a
-# reconnect (page refresh, brief network drop, sleep/wake) gets a fresh,
-# empty session_state even though the daemon thread keeps running in the
-# same process. A module-level dict survives reruns and is shared across all
-# sessions hitting this server, which matches there being only one loop.
-if "_acquisition_state" not in globals():
-    _acquisition_state = {
-        "thread": None,
-        "stop_event": None,
-        "status_queue": None,
-        "status_log": [],
-        "interval_min": None,
-        "last_status_time": None,
-    }
+# Single process-wide acquisition state, shared across all sessions - see
+# get_acquisition_state() in src/utils.py for why this can't live here.
+_acquisition_state = get_acquisition_state()
 
 tab_acquisition, tab_dashboard = st.tabs(["Acquisition", "Dashboard"])
 
