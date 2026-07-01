@@ -276,11 +276,15 @@ def run_loop(download_dir, interval_min, headless, stop_event, status_queue, bro
     try:
         while not stop_event.is_set():
             success, message = save_export(driver, download_dir)
-            timestamp = datetime.now().strftime("%H:%M:%S")
+            # Record the moment the fetch finished (= when the sleep starts).
+            # Pushed as a (text, datetime) tuple so the UI can compute an
+            # accurate countdown regardless of when the queue is drained.
+            cycle_end = datetime.now()
+            display_ts = cycle_end.strftime("%H:%M:%S")
             if success:
-                status_queue.put(f"[{timestamp}] Download successful")
+                status_queue.put((f"[{display_ts}] Download successful", cycle_end))
             else:
-                status_queue.put(f"[{timestamp}] {message} (will retry next cycle)")
+                status_queue.put((f"[{display_ts}] {message} (will retry next cycle)", cycle_end))
 
             reset_driver_state(driver)
 

@@ -117,7 +117,7 @@ with tab_acquisition:
             _acquisition_state["status_queue"] = status_queue
             _acquisition_state["status_log"] = []
             _acquisition_state["interval_min"] = fetch_interval_min
-            _acquisition_state["last_status_time"] = datetime.now()
+            _acquisition_state["last_status_time"] = None  # set accurately on first cycle report
             thread.start()
             rerun()
 
@@ -129,8 +129,16 @@ with tab_acquisition:
     status_queue = _acquisition_state["status_queue"]
     if status_queue is not None:
         while not status_queue.empty():
-            _acquisition_state["status_log"].append(status_queue.get())
-            _acquisition_state["last_status_time"] = datetime.now()
+            item = status_queue.get()
+            if isinstance(item, tuple):
+                # (message, cycle_end_datetime) - use the thread's timestamp so
+                # the countdown reflects when the sleep actually started, not
+                # when this drain happened.
+                msg, cycle_end = item
+                _acquisition_state["status_log"].append(msg)
+                _acquisition_state["last_status_time"] = cycle_end
+            else:
+                _acquisition_state["status_log"].append(item)
 
     status_log = _acquisition_state["status_log"]
 
@@ -150,7 +158,9 @@ with tab_acquisition:
 
         running_interval_min = _acquisition_state["interval_min"] or fetch_interval_min
         last_status_time = _acquisition_state["last_status_time"]
-        if last_status_time is not None and running_interval_min:
+        if last_status_time is None:
+            st.caption("First fetch in progress...")
+        elif running_interval_min:
             interval_sec = running_interval_min * 60
             elapsed = (datetime.now() - last_status_time).total_seconds()
             remaining = max(0, interval_sec - elapsed)
