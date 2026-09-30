@@ -7,5 +7,5 @@ settings.json
 __pycache__/
 *.pyc
 .venv/
+.dashboard-venv/
 venv/
-README.md

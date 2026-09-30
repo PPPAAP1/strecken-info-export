@@ -16,10 +16,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 from webdriver_manager.microsoft import EdgeChromiumDriverManager
 
 TARGET_URL = "https://strecken-info.de"
-# The site's export button downloads a file whose name starts with this
-# prefix (e.g. "einschraenkungen.csv" or "einschraenkungen_11.06.2026.csv"
-# depending on the site version) - match by prefix instead of an exact name.
-EXPORT_FILE_PREFIX = "einschraenkungen"
+# The site has used both an ASCII transliteration and the German spelling.
+# Keep both because ``Einschränkungen`` cannot be recovered from the old
+# ``einschraenkungen`` spelling by generic Unicode normalisation alone.
+EXPORT_FILE_PREFIXES = ("einschraenkungen", "einschränkungen")
 CLICK_TIMEOUT = 10
 COOKIE_TIMEOUT = 5
 DOWNLOAD_TIMEOUT = 60
@@ -172,20 +172,21 @@ def download_restriction_data(driver):
 
 
 def _find_export_files(download_dir):
-    """Return export CSVs in download_dir, e.g. "einschraenkungen.csv" or
-    "einschraenkungen_11.06.2026.csv" - the site has used both naming schemes.
-    Ignores partial/in-progress downloads."""
+    """Return completed export CSVs using either site filename spelling."""
+    prefixes = tuple(prefix.casefold() for prefix in EXPORT_FILE_PREFIXES)
     return [
         f for f in os.listdir(download_dir)
-        if f.lower().startswith(EXPORT_FILE_PREFIX.lower())
+        if f.casefold().startswith(prefixes)
         and f.lower().endswith(".csv")
     ]
 
 
 def _archive_file(download_dir, filename):
-    """Rename a downloaded export file to a timestamped name, avoiding collisions."""
+    """Rename an export using its download mtime, avoiding name collisions."""
     src_path = os.path.join(download_dir, filename)
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    # Use the file timestamp instead of the processing time. This matters when
+    # recovering a backlog of exports that an older version failed to detect.
+    timestamp = datetime.fromtimestamp(os.path.getmtime(src_path)).strftime("%Y-%m-%d_%H-%M")
     dst_path = os.path.join(download_dir, f"{timestamp}.csv")
     suffix = 1
     while os.path.exists(dst_path):

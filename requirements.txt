@@ -2,3 +2,5 @@ selenium
 webdriver-manager
 pandas
 streamlit
+# Streamlit 1.x (selected on Python 3.9) imports the Altair v4 API.
+altair<5

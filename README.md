@@ -45,6 +45,17 @@ pip install -r requirements.txt
 
 ## Usage
 
+### Windows: start by double-clicking
+
+Double-click `Start Dashboard.bat` in the project folder. On the first start,
+the launcher creates an isolated local Python environment and installs the
+required packages automatically. Later starts open the dashboard directly.
+
+Keep the launcher window open while using the dashboard. Closing it stops the
+dashboard.
+
+### Command line
+
 ```bash
 streamlit run app.py
 ```
